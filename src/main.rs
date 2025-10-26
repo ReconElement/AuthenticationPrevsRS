@@ -34,7 +34,8 @@ async fn main(){
 async fn signup(Json(payload): Json<serde_json::Value>){
     println!("{:?}",payload);
     let connection = connect_to_db().await;
-    let query = db::db::seed_data(connection).await;
+    // let query = db::db::seed_data(connection).await; 
+    
 }
 //postgres password 2020
 async fn connect_to_db()->Pool<Postgres>{
