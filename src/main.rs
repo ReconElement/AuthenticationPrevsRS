@@ -1,15 +1,22 @@
-
+use std::env;
+use dotenv::dotenv;
+mod entity;
+use entity::{post, user};
 use axum::{
     routing::get,
     Router,
-    routing::post
+    routing::post,
+    response::Json,
+    http::StatusCode
 };
+use sea_orm::ActiveValue::Set;
+use sea_orm::{Database, DatabaseConnection};
 use serde::{
     Serialize, Deserialize
 };
-use axum::extract::{Json};
+// use axum::extract::{Json};
 use sqlx::postgres::{
-    PgPoolOptions,
+    PgPoolOptions, PgQueryResult,
     
 };
 use sqlx::{Executor, Pool, Postgres};
@@ -29,17 +36,20 @@ async fn main(){
     axum::serve(listener, app).await.unwrap();
 }
 
-//connect to db 
-//do auth sign up and login - store user credentials and profile 
-async fn signup(Json(payload): Json<serde_json::Value>){
-    println!("{:?}",payload);
-    let connection = connect_to_db().await;
-    // let query = db::db::seed_data(connection).await; 
-    
+async fn signup(Json(user): Json<User>)->StatusCode{
+    println!("{:?}",user);
+    //write to db 
+    let db_conn = connect_to_db_sea().await;
+    StatusCode::ACCEPTED
 }
 //postgres password 2020
+async fn connect_to_db_sea()->DatabaseConnection{
+    let connection_string = env::var("DATABASE_URL").unwrap();
+    // let db: DatabaseConnection =  Database::connect("postgres://postgres:2020@localhost/postgres").await.expect("Successfully connected to db");
+    let db: DatabaseConnection = Database::connect(env::var("DATABASE_URL").unwrap()).await.expect("Connection established");
+    db
+}
 async fn connect_to_db()->Pool<Postgres>{
-    let pool = PgPoolOptions::new().max_connections(5).connect("postgres://postgres:2002@localhost/postgres").await.expect("successfully connected to db");
+    let pool = PgPoolOptions::new().max_connections(5).connect("postgres://postgres:2020@localhost/postgres").await.expect("successfully connected to db");
     pool
 }
-
