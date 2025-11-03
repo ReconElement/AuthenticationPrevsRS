@@ -4,8 +4,10 @@ pub mod db {
     use std::option::Option;
     use std::task::Context;
     use sqlx::postgres::PgRow;
-    use futures::{Stream, StreamExt, TryStreamExt};
-    use futures::stream;
+    use futures::{FutureExt, Stream, TryStreamExt};
+    use futures::stream::{self, StreamExt};
+    use futures::task::Poll;
+    use futures::executor::block_on_stream;
     use std::time::SystemTime;
     use chrono::{NaiveDate, NaiveDateTime, Utc};
     use sqlx::FromRow;
@@ -13,7 +15,7 @@ pub mod db {
     use sqlx::Error;
     use sqlx::postgres::{PgQueryResult};
     use std::pin::Pin;
-    #[derive(sqlx::FromRow)]
+    #[derive(sqlx::FromRow, Debug)]
     struct User{
         id: i32, 
         email: String,
@@ -71,10 +73,45 @@ pub mod db {
         let query = sqlx::query(insert_user).execute(&connection).await.expect("Something went wrong while inserting data");
     } 
     pub async fn sign_in_query(connection: Pool<Postgres>, name: &str, password: &str){
-        let mut sign_in = format!("SELECT * FROM \"User\" where email='{}' and password='{}';",name, password);
+        let mut sign_in = format!("SELECT * FROM \"User\" where name='{}' and password='{}';",name, password);
+        println!("{}",sign_in);
         let sign_in: &str = &sign_in;
-        let stream_rows = sqlx::query_as::<_, User>(sign_in).fetch(&connection);
-        let x = stream_rows.deref();
-        let data = x.collect()
+        let mut stream_rows = sqlx::query_as::<_, User>(sign_in).fetch(&connection);
+        while let Some(value) = stream_rows.next().await{
+            match value {
+                Ok(value)=>println!("{:?}",value),
+                Err(e)=>println!("{e}")
+            }
+        }
+        // let mut stream = block_on_stream(stream_rows);
+        // while let Some(value) = stream.next(){
+        //     match value {
+        //         Ok(value)=>println!("{:?}",value),
+        //         Err(e)=>println!("{e}")
+        //     }
+        // }
+        // let stream_rows = sqlx::query_as::<_,User>(sign_in).fetch_one(&connection).await;
+        // match stream_rows{
+        //     Ok(stream_rows)=>println!("{:?}",stream_rows),
+        //     Err(e)=>println!("{e}")
+        // }
+        // let stream_rows = sqlx::query_as::<_, User>(sign_in).fetch_all(&connection).await;
+        // let stream = sqlx::query(sign_in).fetch_all(&connection).await;
+        // while let Some(value) = stream.iter().next(){
+        //     value.iter().for_each(|t|{
+        //         println!("{:?}",t)
+        //     });
+        // }
+
+        // let stream = sqlx::query(sign_in).fetch_one(&connection).await;
+        // match stream {
+        //     Ok(stream)=>println!("{:?}",stream),
+        //     Err(e)=>println!("{:?}",e)
+        // }
+        let stream = sqlx::query_as::<_,User>(sign_in).fetch_one(&connection).await;
+        match stream {
+            Ok(stream)=>println!("{:#?}",stream.name),
+            Err(e)=>println!("{e}")
+        }
     }
 }

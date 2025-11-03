@@ -8,8 +8,6 @@ use axum::{
     response::Json,
     http::StatusCode
 };
-use sea_orm::ActiveValue::Set;
-use sea_orm::{Database, DatabaseConnection};
 use serde::{
     Serialize, Deserialize
 };
@@ -60,12 +58,6 @@ async fn signin(Json(sign_in_user):Json<sign_in_user>)->StatusCode{
     StatusCode::ACCEPTED
 }
 //postgres password 2020
-async fn connect_to_db_sea()->DatabaseConnection{
-    let connection_string = env::var("DATABASE_URL").unwrap();
-    // let db: DatabaseConnection =  Database::connect("postgres://postgres:2020@localhost/postgres").await.expect("Successfully connected to db");
-    let db: DatabaseConnection = Database::connect(env::var("DATABASE_URL").unwrap()).await.expect("Connection established");
-    db
-}
 async fn connect_to_db()->Pool<Postgres>{
     let pool = PgPoolOptions::new().max_connections(5).connect("postgres://postgres:2020@localhost/postgres").await.expect("Connection with the db could not be established");
     pool
