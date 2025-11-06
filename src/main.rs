@@ -1,4 +1,7 @@
+use std::arch::x86_64::_MM_MANTISSA_SIGN_ENUM;
 use std::env;
+use axum::response::IntoResponse;
+use axum::routing::connect;
 use bcrypt::{DEFAULT_COST, hash, verify};
 use dotenv::dotenv;
 use axum::{
@@ -11,6 +14,7 @@ use axum::{
 use serde::{
     Serialize, Deserialize
 };
+use serde_json::json;
 // use axum::extract::{Json};
 use sqlx::postgres::{
     PgPoolOptions, PgQueryResult,
@@ -27,6 +31,7 @@ struct User{
     password: String
 }
 #[derive(Serialize, Deserialize, Debug)]
+
 struct sign_in_user{
     full_name: String,
     password: String
@@ -51,11 +56,49 @@ async fn signup(Json(user): Json<User>)->StatusCode{
     let insert = sign_up_query(db_conn, &user.email,&user.full_name, &hashed_password, false).await;
     StatusCode::ACCEPTED
 }
-async fn signin(Json(sign_in_user):Json<sign_in_user>)->StatusCode{
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Response{
+    status_code: i32,
+    data: String
+}
+
+// async fn signin(Json(sign_in_user):Json<sign_in_user>)->impl IntoResponse{
+//     let connection = connect_to_db().await;
+//     let signin = sign_in_query(connection, &sign_in_user.full_name, &sign_in_user.password).await;
+//     if signin == true {
+//         (StatusCode::FOUND, format!("Data found"))
+//     }else{
+//         (StatusCode::NOT_FOUND, format!("Data not found"))
+//     }
+// }
+
+async fn signin(Json(sign_in_user):Json<sign_in_user>)->Json<Response>{
     let connection = connect_to_db().await;
     let signin = sign_in_query(connection, &sign_in_user.full_name, &sign_in_user.password).await;
-    
-    StatusCode::ACCEPTED
+    if signin {
+        let res = Response{
+            status_code: 200,
+            data: String::from("User found, signin successful")
+        };
+        Json(res)
+    }else{
+        let res = Response{
+            status_code: 404,
+            data: String::from("User not found, signin unsuccessful")
+        };
+        Json(res)
+    }
+}
+//signin2 has to return cookies with authentication jwt stored in it 
+async fn signin2(Json(sign_in_user):Json<sign_in_user>)->impl IntoResponse{
+    let connection = connect_to_db().await;
+    let users = sign_in_query(connection, &sign_in_user.full_name, &sign_in_user.password).await;
+    if !users.is_empty(){
+        for user in users{
+            
+        }
+    }
 }
 //postgres password 2020
 async fn connect_to_db()->Pool<Postgres>{

@@ -1,5 +1,7 @@
 
 pub mod db {
+    use std::collections;
+    use std::num::IntErrorKind;
     use std::ops::Deref;
     use std::option::Option;
     use std::task::Context;
@@ -21,7 +23,7 @@ pub mod db {
         email: String,
         name: String,
         password: String,
-        is_denied: bool
+        isDeleted: bool
     }
     pub async fn create_tables(connection: Pool<Postgres>) -> Result<PgQueryResult, Error> {
         let query: &str = "
@@ -67,12 +69,19 @@ pub mod db {
         println!("{:?}",query1);
     }
     pub async fn sign_up_query(connection: Pool<Postgres>, email: &str, name: &str, password: &str, is_deleted: bool){
-        let mut struck = sqlx::query("SELECT * FROM \"User\";").map(|row: PgRow| {println!("{:?}",row)}).fetch(&connection);
+        
         let mut insert_user = format!("INSERT INTO \"User\" (email, name, password, \"isDeleted\") values ('{}','{}','{}',{})", email, name, password, is_deleted);
         let insert_user: &str = &insert_user;
         let query = sqlx::query(insert_user).execute(&connection).await.expect("Something went wrong while inserting data");
+        let mut pg_query = sqlx::query_as::<_, User>(insert_user).fetch(&connection);
+        while let Some(value) = pg_query.next().await{
+            match value{
+                Ok(value)=>println!("{:#?}",value),
+                Err(e)=>println!("{e}")
+            }
+        }
     } 
-    pub async fn sign_in_query(connection: Pool<Postgres>, name: &str, password: &str){
+    pub async fn sign_in_query(connection: Pool<Postgres>, name: &str, password: &str)->Vec<User>{
         let mut sign_in = format!("SELECT * FROM \"User\" where name='{}' and password='{}';",name, password);
         println!("{}",sign_in);
         let sign_in: &str = &sign_in;
@@ -108,10 +117,19 @@ pub mod db {
         //     Ok(stream)=>println!("{:?}",stream),
         //     Err(e)=>println!("{:?}",e)
         // }
-        let stream = sqlx::query_as::<_,User>(sign_in).fetch_one(&connection).await;
-        match stream {
-            Ok(stream)=>println!("{:#?}",stream.name),
-            Err(e)=>println!("{e}")
+        // let stream = sqlx::query_as::<_,User>(sign_in).fetch_one(&connection).await;
+        // match stream {
+        //     Ok(stream)=>println!("{:#?}",stream.name),
+        //     Err(e)=>println!("{e}")
+        // }
+        let mut stream = sqlx::query_as::<_, User>(sign_in).fetch(&connection);
+        let mut collection: Vec<User> = Vec::new();
+        while let Some(value) = stream.next().await{
+            match value {
+                Ok(value)=>collection.push(value),
+                Err(e)=>println!("{e}")
+            }
         }
+        collection
     }
 }
