@@ -18,12 +18,12 @@ pub mod db {
     use sqlx::postgres::{PgQueryResult};
     use std::pin::Pin;
     #[derive(sqlx::FromRow, Debug)]
-    struct User{
-        id: i32, 
-        email: String,
-        name: String,
-        password: String,
-        isDeleted: bool
+    pub struct User{
+        pub id: i32, 
+        pub email: String,
+        pub name: String,
+        pub password: String,
+        pub isDeleted: bool
     }
     pub async fn create_tables(connection: Pool<Postgres>) -> Result<PgQueryResult, Error> {
         let query: &str = "
@@ -81,7 +81,7 @@ pub mod db {
             }
         }
     } 
-    pub async fn sign_in_query(connection: Pool<Postgres>, name: &str, password: &str)->Vec<User>{
+    pub async fn sign_in_query(connection: Pool<Postgres>, name: &str, password: &str)->Result<User, Error>{
         let mut sign_in = format!("SELECT * FROM \"User\" where name='{}' and password='{}';",name, password);
         println!("{}",sign_in);
         let sign_in: &str = &sign_in;
@@ -92,44 +92,7 @@ pub mod db {
                 Err(e)=>println!("{e}")
             }
         }
-        // let mut stream = block_on_stream(stream_rows);
-        // while let Some(value) = stream.next(){
-        //     match value {
-        //         Ok(value)=>println!("{:?}",value),
-        //         Err(e)=>println!("{e}")
-        //     }
-        // }
-        // let stream_rows = sqlx::query_as::<_,User>(sign_in).fetch_one(&connection).await;
-        // match stream_rows{
-        //     Ok(stream_rows)=>println!("{:?}",stream_rows),
-        //     Err(e)=>println!("{e}")
-        // }
-        // let stream_rows = sqlx::query_as::<_, User>(sign_in).fetch_all(&connection).await;
-        // let stream = sqlx::query(sign_in).fetch_all(&connection).await;
-        // while let Some(value) = stream.iter().next(){
-        //     value.iter().for_each(|t|{
-        //         println!("{:?}",t)
-        //     });
-        // }
-
-        // let stream = sqlx::query(sign_in).fetch_one(&connection).await;
-        // match stream {
-        //     Ok(stream)=>println!("{:?}",stream),
-        //     Err(e)=>println!("{:?}",e)
-        // }
-        // let stream = sqlx::query_as::<_,User>(sign_in).fetch_one(&connection).await;
-        // match stream {
-        //     Ok(stream)=>println!("{:#?}",stream.name),
-        //     Err(e)=>println!("{e}")
-        // }
-        let mut stream = sqlx::query_as::<_, User>(sign_in).fetch(&connection);
-        let mut collection: Vec<User> = Vec::new();
-        while let Some(value) = stream.next().await{
-            match value {
-                Ok(value)=>collection.push(value),
-                Err(e)=>println!("{e}")
-            }
-        }
-        collection
+        let mut stream = sqlx::query_as::<_, User>(sign_in).fetch_one(&connection).await;
+        return stream;
     }
 }
