@@ -4,7 +4,6 @@ use std::str::FromStr;
 use axum::http::{HeaderName, HeaderValue, header, HeaderMap};
 use axum::response::{Html, IntoResponse, Response};
 use cookie::time::Duration;
-use cookie::{Cookie};
 use axum::routing::{connect, head};
 use axum::{body, debug_handler};
 // use axum_cookie::{CookieMiddleware, prelude::*};
@@ -34,6 +33,16 @@ use sqlx::{Executor, Pool, Postgres};
 mod db;
 use db::db::{seed_data, sign_up_query, sign_in_query};
 use jsonwebtoken::{encode, Algorithm, Header, EncodingKey};
+use std::time::{UNIX_EPOCH, SystemTime};
+use axum::extract::{Request};
+use axum::middleware::{Next, self};
+use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims{
+    sub: String,
+    company: String,
+    exp: usize
+}   
 #[derive(Serialize, Deserialize, Debug)]
 struct User{
     full_name: String,
@@ -50,7 +59,7 @@ struct sign_in_user{
 
 #[tokio::main]
 async fn main(){
-    let app = Router::new().route("/",get(|| async {"Hello World"})).route("/signup",post(signup)).route("/signin",post(signin2));
+    let app = Router::new().route("/auth_test",get(auth_test)).route_layer(middleware::from_fn(auth)).route("/",get(|| async {"Hello World"})).route("/signup",post(signup)).route("/signin",post(signin2)).layer(CookieManagerLayer::new());
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
@@ -80,6 +89,9 @@ struct IResponse{
 async fn signin2(Json(body_value):Json<sign_in_user>)->impl IntoResponse{
     dotenv().ok();
     let db_url: &str = &env::var("DATABASE_URL").unwrap();
+    let token_secret: &str = &env::var("SECRET_KEY").unwrap();
+    let mut jwt_token = String::new();
+    println!("{}",db_url);
     let mut auth_cookie: Cookie<'_>;
     let connection = connect_to_db(db_url).await;
     let user = sign_in_query(connection, &body_value.full_name, &body_value.password).await;
@@ -87,23 +99,43 @@ async fn signin2(Json(body_value):Json<sign_in_user>)->impl IntoResponse{
         Ok(user)=>{
             let valid = verify(body_value.password, &user.password).unwrap();
             if valid == true{
-                println!("{:#?}",user);
+                let mut Header = Header::new(Algorithm::HS256);
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()+3600;
+                let my_claims = Claims{
+                    sub: "me".to_owned(),
+                    company: "AuthenticationPrevsRS".to_owned(),
+                    exp: now.to_owned() as usize,
+                };
+                let mut token = encode(&Header::default(), &my_claims, &EncodingKey::from_secret(token_secret.as_ref())).unwrap();
+                jwt_token = token;
             }else{
                 println!("No value found");
             }
         },
-        Err(e)=>println!("{e}")
+        Err(e)=>println!("Error occured: {e}")
     }
-    let mut auth_cookie = Cookie::new("auth_token","er3323erewe");
+    println!("The jwt token outside the scope is: {}",jwt_token);
+    let mut auth_cookie = Cookie::new("jwtToken",format!("{}",jwt_token));
     auth_cookie.set_http_only(false);
     auth_cookie.set_secure(true);
     auth_cookie.set_max_age(Duration::seconds(3600));
-    println!("{:#?}", auth_cookie.expires_datetime());
     let headers = AppendHeaders([
-        (SET_COOKIE, format!("jwtToken={}",auth_cookie))
+        (SET_COOKIE, format!("{}",auth_cookie))
     ]);
-    let content = Html("<h1>T<h1>");
     headers
+}
+
+//middleware to check for auth header
+async fn auth(mut req: Request, next: Next, cookies: Cookies)->Result<Response, StatusCode>{
+    let cookie_list = cookies.list();
+    for cookie in cookie_list{
+        println!("{:#?}",cookie);
+    }
+}
+
+async fn auth_test()->impl IntoResponse{
+    dotenv().ok();
+
 }
 //postgres password 2020
 async fn connect_to_db(db_url: &str)->Pool<Postgres>{

@@ -17,6 +17,7 @@ pub mod db {
     use sqlx::Error;
     use sqlx::postgres::{PgQueryResult};
     use std::pin::Pin;
+    use bcrypt::{DEFAULT_COST, hash, verify};
     #[derive(sqlx::FromRow, Debug)]
     pub struct User{
         pub id: i32, 
@@ -69,7 +70,6 @@ pub mod db {
         println!("{:?}",query1);
     }
     pub async fn sign_up_query(connection: Pool<Postgres>, email: &str, name: &str, password: &str, is_deleted: bool){
-        
         let mut insert_user = format!("INSERT INTO \"User\" (email, name, password, \"isDeleted\") values ('{}','{}','{}',{})", email, name, password, is_deleted);
         let insert_user: &str = &insert_user;
         let query = sqlx::query(insert_user).execute(&connection).await.expect("Something went wrong while inserting data");
@@ -82,17 +82,18 @@ pub mod db {
         }
     } 
     pub async fn sign_in_query(connection: Pool<Postgres>, name: &str, password: &str)->Result<User, Error>{
-        let mut sign_in = format!("SELECT * FROM \"User\" where name='{}' and password='{}';",name, password);
+        
+        let mut sign_in = format!("SELECT * FROM \"User\" where name='{}';",name);
         println!("{}",sign_in);
         let sign_in: &str = &sign_in;
-        let mut stream_rows = sqlx::query_as::<_, User>(sign_in).fetch(&connection);
-        while let Some(value) = stream_rows.next().await{
-            match value {
-                Ok(value)=>println!("{:?}",value),
-                Err(e)=>println!("{e}")
-            }
-        }
-        let mut stream = sqlx::query_as::<_, User>(sign_in).fetch_one(&connection).await;
+        // let mut stream_rows = sqlx::query_as::<_, User>(sign_in).fetch(&connection);
+        // while let Some(value) = stream_rows.next().await{
+        //     match value {
+        //         Ok(value)=>println!("{:?}",value),
+        //         Err(e)=>println!("{e}")
+        //     }
+        // }
+        let stream = sqlx::query_as::<_, User>(sign_in).fetch_one(&connection).await;
         return stream;
     }
 }
