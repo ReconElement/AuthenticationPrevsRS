@@ -4,12 +4,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = "0.8.6"
+axum = {version="0.8.6", features=["macros"]}
+axum-cookie = "0.2.4"
+# axum-extra = "0.12.1"
+axum-extra = {version="0.12.1", features = ["cookie"]}
+bcrypt = "0.17.1"
 chrono = "0.4.42"
+cookie = {version="0.18.1", features=["secure"]}
 dotenv = "0.15.0"
-sea-orm = {version="1.1.17", features = ["sqlx-postgres","runtime-tokio-native-tls","macros"]}
+futures = "0.3.31"
+http = "1.3.1"
+jsonwebtoken = {version="10.2.0", features=["aws-lc-rs","rust_crypto","sha2"]}
 serde = {version="1.0.228", features=["derive"]}
 serde_json = "1.0.145"
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres"] }
 tokio = {version = "1.48.0", features = ["full", "rt-multi-thread"]}
+tower-cookies = "0.11.0"
 # sea-orm = {version="^1.1.17", features = ["sqlx-postgres","tokio","macros"]}
