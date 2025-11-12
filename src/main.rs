@@ -35,8 +35,9 @@ use db::db::{seed_data, sign_up_query, sign_in_query};
 use jsonwebtoken::{encode, Algorithm, Header, EncodingKey};
 use std::time::{UNIX_EPOCH, SystemTime};
 use axum::extract::{Request};
-use axum::middleware::{Next, self};
+use axum::middleware::{Next, self, from_fn};
 use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
+use axum_cookie::prelude::*;
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims{
     sub: String,
@@ -59,7 +60,7 @@ struct sign_in_user{
 
 #[tokio::main]
 async fn main(){
-    let app = Router::new().route("/auth_test",get(auth_test)).route_layer(middleware::from_fn(auth)).route("/",get(|| async {"Hello World"})).route("/signup",post(signup)).route("/signin",post(signin2)).layer(CookieManagerLayer::new());
+    let app = Router::new().route("/auth_test",get(auth_test)).route("/",get(|| async {"Hello World"})).route_layer(from_fn(auth)).route("/signup",post(signup)).route("/signin",post(signin2)).layer(CookieLayer::default());
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
@@ -126,16 +127,22 @@ async fn signin2(Json(body_value):Json<sign_in_user>)->impl IntoResponse{
 }
 
 //middleware to check for auth header
-async fn auth(mut req: Request, next: Next, cookies: Cookies)->Result<Response, StatusCode>{
-    let cookie_list = cookies.list();
-    for cookie in cookie_list{
-        println!("{:#?}",cookie);
+
+async fn auth(cookie: CookieManager, req: Request, next: Next)->Result<Response, StatusCode>{
+    dotenv().ok();
+    let jwt_token = cookie.get("jwtToken");
+    match jwt_token{
+        Some(_)=>Ok(next.run(req).await),
+        None=>Err(StatusCode::NOT_FOUND)
     }
 }
 
-async fn auth_test()->impl IntoResponse{
-    dotenv().ok();
-
+async fn auth_test(cookie: CookieManager)->StatusCode{
+    let jwt_token = cookie.get("jwtToken");
+    match jwt_token{
+        Some(_)=>StatusCode::FOUND,
+        None=>StatusCode::NOT_FOUND
+    }
 }
 //postgres password 2020
 async fn connect_to_db(db_url: &str)->Pool<Postgres>{

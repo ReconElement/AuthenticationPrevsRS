@@ -14,6 +14,7 @@ dependencies = [
  "cookie",
  "dotenv",
  "futures",
+ "http",
  "jsonwebtoken",
  "serde",
  "serde_json",
