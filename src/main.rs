@@ -32,7 +32,7 @@ use sqlx::postgres::{
 use sqlx::{Executor, Pool, Postgres};
 mod db;
 use db::db::{seed_data, sign_up_query, sign_in_query};
-use jsonwebtoken::{encode, Algorithm, Header, EncodingKey};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, encode, decode};
 use std::time::{UNIX_EPOCH, SystemTime};
 use axum::extract::{Request};
 use axum::middleware::{Next, self, from_fn};
@@ -130,10 +130,16 @@ async fn signin2(Json(body_value):Json<sign_in_user>)->impl IntoResponse{
 
 async fn auth(cookie: CookieManager, req: Request, next: Next)->Result<Response, StatusCode>{
     dotenv().ok();
-    let jwt_token = cookie.get("jwtToken");
-    match jwt_token{
-        Some(_)=>Ok(next.run(req).await),
-        None=>Err(StatusCode::NOT_FOUND)
+    let token_secret: &str = &env::var("SECRET_KEY").unwrap();
+    // let jwt_token = cookie.get("jwtToken").unwrap().value();
+    if let Some(jwt_token) = cookie.get("jwtToken"){
+        let decoded_token = decode::<Claims>(&jwt_token.value(), &DecodingKey::from_secret(token_secret.as_ref()), &Validation::default());
+        match decoded_token{
+            Ok(_)=>Ok(next.run(req).await),
+            Err(e)=>Err(StatusCode::NOT_FOUND)
+        }
+    }else{
+        Err(StatusCode::NOT_FOUND)
     }
 }
 
